@@ -9,3 +9,5 @@ A page object based implementation of protractor automation
 1. Report can be added 
 2. More oop concepts can be followed
 
+
+

@@ -1,189 +1,114 @@
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.PageFactory;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
+const { browser, element, by, protractor } = require('protractor');
+const EC = protractor.ExpectedConditions;
 
-import java.time.Duration;
+const config = {
+    baseUrl: process.env.ORANGE_HRM_URL || 'https://opensource-demo.orangehrmlive.com/web/index.php/auth/login',
+    validUsername: process.env.ORANGE_HRM_USER || 'Admin',
+    validPassword: process.env.ORANGE_HRM_PASS || 'admin123',
+    timeout: 10000
+};
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-@ExtendWith(TestResultLoggerExtension.class)
-public class OrangeHrmLoginTest {
-
-    private WebDriver driver;
-    private WebDriverWait wait;
-    private LoginPage loginPage;
-    private DashboardPage dashboardPage;
-
-    private static final String BASE_URL = System.getenv("ORANGE_HRM_URL") != null 
-            ? System.getenv("ORANGE_HRM_URL") 
-            : "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login";
-    
-    private static final String VALID_USERNAME = System.getenv("ORANGE_HRM_USER") != null 
-            ? System.getenv("ORANGE_HRM_USER") 
-            : "Admin";
-            
-    private static final String VALID_PASSWORD = System.getenv("ORANGE_HRM_PASS") != null 
-            ? System.getenv("ORANGE_HRM_PASS") 
-            : "admin123";
-
-    @BeforeEach
-    public void setUp() {
-        driver = new ChromeDriver();
-        driver.manage().window().maximize();
-        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-
-        loginPage = new LoginPage(driver, wait);
-        dashboardPage = new DashboardPage(driver, wait);
-
-        driver.get(BASE_URL);
+class LoginPage {
+    constructor() {
+        this.usernameField = element(by.name('username'));
+        this.passwordField = element(by.name('password'));
+        this.loginButton = element(by.css("button[type='submit']"));
+        this.invalidCredentialsMessage = element(by.css('.oxd-alert-content-text'));
+        this.loginPanelTitle = element(by.css('.orangehrm-login-title'));
     }
 
-    @AfterEach
-    public void tearDown() {
-        if (driver != null) {
-            driver.quit();
-        }
+    async setUserName(username) {
+        await browser.wait(EC.visibilityOf(this.usernameField), config.timeout);
+        await this.usernameField.clear();
+        await this.usernameField.sendKeys(username);
     }
 
-    @Test
-    public void verifyErrorMessageForInvalidCredentials() {
-        loginPage.setUserName("Admin1");
-        loginPage.setUserPass("admin1231");
-        loginPage.clickLogin();
-
-        String actualErrorMsg = loginPage.getInvalidMsg();
-        assertEquals("Invalid credentials", actualErrorMsg, "The invalid credentials error message did not match expectations.");
+    async setUserPass(password) {
+        await browser.wait(EC.visibilityOf(this.passwordField), config.timeout);
+        await this.passwordField.clear();
+        await this.passwordField.sendKeys(password);
     }
 
-    @Test
-    public void verifyUserSuccessfullyLoggedIn() {
-        loginPage.setUserName(VALID_USERNAME);
-        loginPage.setUserPass(VALID_PASSWORD);
-        loginPage.clickLogin();
-
-        String actualDashboardText = dashboardPage.getDashboardText();
-        assertEquals("Dashboard", actualDashboardText, "The user was not redirected to the dashboard page.");
+    async clickLogin() {
+        await browser.wait(EC.elementToBeClickable(this.loginButton), config.timeout);
+        await this.loginButton.click();
     }
 
-    @Test
-    public void verifyUserSuccessfullyLoggedOut() {
-        // First log in to reach the dashboard
-        loginPage.setUserName(VALID_USERNAME);
-        loginPage.setUserPass(VALID_PASSWORD);
-        loginPage.clickLogin();
-
-        dashboardPage.clickWelcomeMsg();
-        dashboardPage.clickLogout();
-
-        String actualLoginPanelText = loginPage.getLoginPageText();
-        assertEquals("Login", actualLoginPanelText, "The user was not successfully logged out back to the login panel.");
+    async getInvalidMsg() {
+        await browser.wait(EC.visibilityOf(this.invalidCredentialsMessage), config.timeout);
+        return await this.invalidCredentialsMessage.getText();
     }
 
-    public static class LoginPage {
-        private final WebDriver driver;
-        private final WebDriverWait wait;
-
-        @FindBy(name = "username")
-        private WebElement usernameField;
-
-        @FindBy(name = "password")
-        private WebElement passwordField;
-
-        @FindBy(css = "button[type='submit']")
-        private WebElement loginButton;
-
-        @FindBy(css = ".oxd-alert-content-text")
-        private WebElement invalidCredentialsMessage;
-
-        @FindBy(css = ".orangehrm-login-title")
-        private WebElement loginPanelTitle;
-
-        public LoginPage(WebDriver driver, WebDriverWait wait) {
-            this.driver = driver;
-            this.wait = wait;
-            PageFactory.initElements(driver, this);
-        }
-
-        public void setUserName(String username) {
-            wait.until(ExpectedConditions.visibilityOf(usernameField));
-            usernameField.clear();
-            usernameField.sendKeys(username);
-        }
-
-        public void setUserPass(String password) {
-            wait.until(ExpectedConditions.visibilityOf(passwordField));
-            passwordField.clear();
-            passwordField.sendKeys(password);
-        }
-
-        public void clickLogin() {
-            wait.until(ExpectedConditions.elementToBeClickable(loginButton));
-            loginButton.click();
-        }
-
-        public String getInvalidMsg() {
-            wait.until(ExpectedConditions.visibilityOf(invalidCredentialsMessage));
-            return invalidCredentialsMessage.getText();
-        }
-
-        public String getLoginPageText() {
-            wait.until(ExpectedConditions.visibilityOf(loginPanelTitle));
-            return loginPanelTitle.getText();
-        }
-    }
-
-    public static class DashboardPage {
-        private final WebDriver driver;
-        private final WebDriverWait wait;
-
-        @FindBy(css = ".oxd-topbar-header-breadcrumb-module")
-        private WebElement dashboardHeaderTitle;
-
-        @FindBy(css = ".oxd-userdropdown-tab")
-        private WebElement userDropdownMenu;
-
-        @FindBy(xpath = "//a[text()='Logout']")
-        private WebElement logoutLink;
-
-        public DashboardPage(WebDriver driver, WebDriverWait wait) {
-            this.driver = driver;
-            this.wait = wait;
-            PageFactory.initElements(driver, this);
-        }
-
-        public String getDashboardText() {
-            wait.until(ExpectedConditions.visibilityOf(dashboardHeaderTitle));
-            return dashboardHeaderTitle.getText();
-        }
-
-        public void clickWelcomeMsg() {
-            wait.until(ExpectedConditions.elementToBeClickable(userDropdownMenu));
-            userDropdownMenu.click();
-        }
-
-        public void clickLogout() {
-            wait.until(ExpectedConditions.elementToBeClickable(logoutLink));
-            logoutLink.click();
-        }
+    async getLoginPageText() {
+        await browser.wait(EC.visibilityOf(this.loginPanelTitle), config.timeout);
+        return await this.loginPanelTitle.getText();
     }
 }
 
-class TestResultLoggerExtension implements org.junit.jupiter.api.extension.TestWatcher {
-    @Override
-    public void testSuccessful(org.junit.jupiter.api.extension.ExtensionContext context) {
-        // Hook for test success logging if needed
+class DashboardPage {
+    constructor() {
+        this.dashboardHeaderTitle = element(by.css('.oxd-topbar-header-breadcrumb-module'));
+        this.userDropdownMenu = element(by.css('.oxd-userdropdown-tab'));
+        this.logoutLink = element(by.css("a[href*='logout']"));
     }
 
-    @Override
-    public void testFailed(org.junit.jupiter.api.extension.ExtensionContext context, Throwable cause) {
-        // Hook for test failure logging if needed
+    async getDashboardText() {
+        await browser.wait(EC.visibilityOf(this.dashboardHeaderTitle), config.timeout);
+        return await this.dashboardHeaderTitle.getText();
+    }
+
+    async clickWelcomeMsg() {
+        await browser.wait(EC.elementToBeClickable(this.userDropdownMenu), config.timeout);
+        await this.userDropdownMenu.click();
+    }
+
+    async clickLogout() {
+        await browser.wait(EC.elementToBeClickable(this.logoutLink), config.timeout);
+        await this.logoutLink.click();
     }
 }
+
+const loginPage = new LoginPage();
+const dashboardPage = new DashboardPage();
+
+describe('OrangeHRM Login Tests', () => {
+    beforeEach(async () => {
+        await browser.waitForAngularEnabled(false);
+        await browser.manage().window().maximize();
+        await browser.get(config.baseUrl);
+    });
+
+    afterEach(async () => {
+        await browser.waitForAngularEnabled(true);
+    });
+
+    it('verifyErrorMessageForInvalidCredentials', async () => {
+        await loginPage.setUserName('Admin1');
+        await loginPage.setUserPass('admin1231');
+        await loginPage.clickLogin();
+
+        const actualErrorMsg = await loginPage.getInvalidMsg();
+        expect(actualErrorMsg).toEqual('Invalid credentials');
+    });
+
+    it('verifyUserSuccessfullyLoggedIn', async () => {
+        await loginPage.setUserName(config.validUsername);
+        await loginPage.setUserPass(config.validPassword);
+        await loginPage.clickLogin();
+
+        const actualDashboardText = await dashboardPage.getDashboardText();
+        expect(actualDashboardText).toEqual('Dashboard');
+    });
+
+    it('verifyUserSuccessfullyLoggedOut', async () => {
+        await loginPage.setUserName(config.validUsername);
+        await loginPage.setUserPass(config.validPassword);
+        await loginPage.clickLogin();
+
+        await dashboardPage.clickWelcomeMsg();
+        await dashboardPage.clickLogout();
+
+        const actualLoginPanelText = await loginPage.getLoginPageText();
+        expect(actualLoginPanelText).toEqual('Login');
+    });
+});

@@ -1,109 +1,78 @@
-package com.automation.tests;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.PageFactory;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
-
-import java.time.Duration;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-@ExtendWith(TestExecutionExtension.class)
-public class DashboardTest {
-
-    private WebDriver driver;
-    private WebDriverWait wait;
-    private DashboardPage dashboardPage;
-    private final TestConfig config = new TestConfig();
-
-    public static class TestConfig {
-        public String getBaseUrl() {
-            return System.getenv("BASE_URL") != null ? System.getenv("BASE_URL") : "https://opensource-demo.orangehrmlive.com/index.php/dashboard";
-        }
-
-        public long getExplicitTimeoutSeconds() {
-            return 10;
-        }
+/**
+ * Test Configuration for environment-aware parameters.
+ * Addresses hard-coded test data by falling back to environment variables or safe defaults.
+ */
+class TestConfig {
+    getBaseUrl() {
+        return process.env.BASE_URL || 'https://opensource-demo.orangehrmlive.com/index.php/dashboard';
     }
 
-    public static class TestExecutionExtension implements org.junit.jupiter.api.extension.Extension {
-        // JUnit 5 Extension boilerplate for test lifecycle monitoring if needed
-    }
-
-    public static class DashboardPage {
-        private final WebDriver driver;
-        private final WebDriverWait wait;
-
-        @FindBy(xpath = "//li[8]/a/b")
-        private WebElement dashboardTextLocator;
-
-        @FindBy(id = "welcome")
-        private WebElement welcomeMessage;
-
-        @FindBy(linkText = "Logout")
-        private WebElement logoutMenu;
-
-        public DashboardPage(WebDriver driver, WebDriverWait wait) {
-            this.driver = driver;
-            this.wait = wait;
-            PageFactory.initElements(driver, this);
-        }
-
-        public void clickWelcomeMessage() {
-            wait.until(ExpectedConditions.elementToBeClickable(welcomeMessage)).click();
-        }
-
-        public void clickLogout() {
-            wait.until(ExpectedConditions.elementToBeClickable(logoutMenu)).click();
-        }
-
-        public String getDashboardText() {
-            return wait.until(ExpectedConditions.visibilityOf(dashboardTextLocator)).getText();
-        }
-    }
-
-    @BeforeEach
-    public void setUp() {
-        driver = new ChromeDriver();
-        driver.manage().window().maximize();
-        wait = new WebDriverWait(driver, Duration.ofSeconds(config.getExplicitTimeoutSeconds()));
-        driver.get(config.getBaseUrl());
-        dashboardPage = new DashboardPage(driver, wait);
-    }
-
-    @AfterEach
-    public void tearDown() {
-        if (driver != null) {
-            driver.quit();
-        }
-    }
-
-    @Test
-    @DisplayName("Verify dashboard text is correctly displayed")
-    public void testVerifyDashboardText() {
-        String dashboardText = dashboardPage.getDashboardText();
-        assertTrue(dashboardText != null && !dashboardText.isEmpty(), "Dashboard text should be present and non-empty.");
-    }
-
-    @Test
-    @DisplayName("Verify user can successfully logout from the dashboard")
-    public void testUserLogoutWorkflow() {
-        dashboardPage.clickWelcomeMessage();
-        dashboardPage.clickLogout();
-        
-        String currentUrl = driver.getCurrentUrl();
-        assertTrue(currentUrl.contains("login") || currentUrl.contains("auth"), 
-            "User should be redirected to the login page after logging out. Current URL: " + currentUrl);
+    getExplicitTimeout() {
+        return 10000;
     }
 }
 
+const config = new TestConfig();
+const EC = protractor.ExpectedConditions;
+
+/**
+ * Page Object Class for the Dashboard Page.
+ * Encapsulates all locators and actions using Protractor best practices.
+ */
+class DashboardPage {
+    constructor() {
+        this.dashboardTextLocator = element(by.xpath('//li[8]/a/b'));
+        this.welcomeMessage = element(by.id('welcome'));
+        this.logoutMenu = element(by.linkText('Logout'));
+    }
+
+    async clickWelcomeMessage() {
+        await browser.wait(EC.elementToBeClickable(this.welcomeMessage), config.getExplicitTimeout());
+        await this.welcomeMessage.click();
+    }
+
+    async clickLogout() {
+        await browser.wait(EC.elementToBeClickable(this.logoutMenu), config.getExplicitTimeout());
+        await this.logoutMenu.click();
+    }
+
+    async getDashboardText() {
+        await browser.wait(EC.visibilityOf(this.dashboardTextLocator), config.getExplicitTimeout());
+        return await this.dashboardTextLocator.getText();
+    }
+}
+
+module.exports = new DashboardPage();
+
+describe('DashboardTest', () => {
+    let dashboardPage;
+
+    beforeEach(async () => {
+        dashboardPage = require('./dashboard.po'); // Assuming page object is required or globally available
+        
+        // Disable Angular synchronization if testing a non-Angular or hybrid page
+        await browser.waitForAngularEnabled(false);
+        await browser.manage().window().maximize();
+        await browser.get(config.getBaseUrl());
+    });
+
+    afterEach(async () => {
+        // Restore Angular synchronization to default state after test execution
+        await browser.waitForAngularEnabled(true);
+    });
+
+    it('Verify dashboard text is correctly displayed', async () => {
+        const dashboardText = await dashboardPage.getDashboardText();
+        expect(dashboardText).toBeTruthy();
+        expect(dashboardText.length).toBeGreaterThan(0);
+    });
+
+    it('Verify user can successfully logout from the dashboard', async () => {
+        await dashboardPage.clickWelcomeMessage();
+        await dashboardPage.clickLogout();
+
+        const currentUrl = await browser.getCurrentUrl();
+        const isLoggedOut = currentUrl.includes('login') || currentUrl.includes('auth');
+        expect(isLoggedOut).toBe(true);
+    });
+});

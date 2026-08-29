@@ -1,124 +1,80 @@
-package com.example.tests;
+const { browser, element, by, protractor } = require('protractor');
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.PageFactory;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
-
-import java.time.Duration;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-@ExtendWith(TestResultWatcher.class)
-public class OrangeHrmLoginTest {
-
-    private WebDriver driver;
-    private WebDriverWait wait;
-    private LoginPage loginPage;
-
-    private static final String BASE_URL = System.getenv("APP_URL") != null 
-            ? System.getenv("APP_URL") 
-            : "https://opensource-demo.orangehrmlive.com/";
-
-    @BeforeEach
-    public void setUp() {
-        driver = new ChromeDriver();
-        driver.manage().window().maximize();
-        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        loginPage = new LoginPage(driver, wait);
+class LoginPage {
+    constructor() {
+        this.nameInput = element(by.model('username'));
+        this.passInput = element(by.model('password'));
+        this.btnLogin = element(by.buttonText('Login'));
+        this.loginPanelText = element(by.binding('loginPanelHeading'));
+        this.loginPanelInvalidMsg = element(by.binding('spanMessage'));
     }
 
-    @AfterEach
-    public void tearDown() {
-        if (driver != null) {
-            driver.quit();
-        }
+    async navigateToLoginPage(url) {
+        await browser.get(url);
+        const EC = protractor.ExpectedConditions;
+        await browser.wait(EC.visibilityOf(this.loginPanelText), 10000);
     }
 
-    @Test
-    public void testLoginPanelHeadingIsDisplayed() {
-        loginPage.navigateToLoginPage(BASE_URL);
-        String panelHeading = loginPage.getLoginPageText();
-        assertTrue(panelHeading.contains("LOGIN Panel"), 
-                "The login panel heading should be visible and contain expected text.");
+    async setUserName(name) {
+        const EC = protractor.ExpectedConditions;
+        await browser.wait(EC.visibilityOf(this.nameInput), 10000);
+        await this.nameInput.clear();
+        await this.nameInput.sendKeys(name);
     }
 
-    @Test
-    public void testInvalidLoginShowsErrorMessage() {
-        loginPage.navigateToLoginPage(BASE_URL);
-        loginPage.setUserName("InvalidUser");
-        loginPage.setUserPass("WrongPassword");
-        loginPage.clickLogin();
-
-        String errorMessage = loginPage.getInvalidMsg();
-        assertEquals("Invalid credentials", errorMessage, 
-                "An invalid login attempt should display the correct error message.");
+    async setUserPass(pass) {
+        const EC = protractor.ExpectedConditions;
+        await browser.wait(EC.visibilityOf(this.passInput), 10000);
+        await this.passInput.clear();
+        await this.passInput.sendKeys(pass);
     }
 
-    public static class LoginPage {
-        private final WebDriver driver;
-        private final WebDriverWait wait;
+    async clickLogin() {
+        const EC = protractor.ExpectedConditions;
+        await browser.wait(EC.elementToBeClickable(this.btnLogin), 10000);
+        await this.btnLogin.click();
+    }
 
-        @FindBy(id = "txtUsername")
-        private WebElement nameInput;
+    async getLoginPageText() {
+        const EC = protractor.ExpectedConditions;
+        await browser.wait(EC.visibilityOf(this.loginPanelText), 10000);
+        return await this.loginPanelText.getText();
+    }
 
-        @FindBy(id = "txtPassword")
-        private WebElement passInput;
-
-        @FindBy(id = "btnLogin")
-        private WebElement btnLogin;
-
-        @FindBy(id = "logInPanelHeading")
-        private WebElement loginPanelText;
-
-        @FindBy(id = "spanMessage")
-        private WebElement loginPanelInvalidMsg;
-
-        public LoginPage(WebDriver driver, WebDriverWait wait) {
-            this.driver = driver;
-            this.wait = wait;
-            PageFactory.initElements(driver, this);
-        }
-
-        public void navigateToLoginPage(String url) {
-            driver.get(url);
-            wait.until(ExpectedConditions.visibilityOf(loginPanelText));
-        }
-
-        public void setUserName(String name) {
-            wait.until(ExpectedConditions.visibilityOf(nameInput));
-            nameInput.clear();
-            nameInput.sendKeys(name);
-        }
-
-        public void setUserPass(String pass) {
-            wait.until(ExpectedConditions.visibilityOf(passInput));
-            passInput.clear();
-            passInput.sendKeys(pass);
-        }
-
-        public void clickLogin() {
-            wait.until(ExpectedConditions.elementToBeClickable(btnLogin));
-            btnLogin.click();
-        }
-
-        public String getLoginPageText() {
-            wait.until(ExpectedConditions.visibilityOf(loginPanelText));
-            return loginPanelText.getText();
-        }
-
-        public String getInvalidMsg() {
-            wait.until(ExpectedConditions.visibilityOf(loginPanelInvalidMsg));
-            return loginPanelInvalidMsg.getText();
-        }
+    async getInvalidMsg() {
+        const EC = protractor.ExpectedConditions;
+        await browser.wait(EC.visibilityOf(this.loginPanelInvalidMsg), 10000);
+        return await this.loginPanelInvalidMsg.getText();
     }
 }
 
+const loginPage = new LoginPage();
+
+describe('OrangeHRM Login Test', () => {
+    const BASE_URL = process.env.APP_URL || 'https://opensource-demo.orangehrmlive.com/';
+
+    beforeEach(async () => {
+        await browser.waitForAngularEnabled(true);
+        await browser.manage().window().maximize();
+    });
+
+    afterEach(async () => {
+        await browser.waitForAngularEnabled(true);
+    });
+
+    it('testLoginPanelHeadingIsDisplayed', async () => {
+        await loginPage.navigateToLoginPage(BASE_URL);
+        const panelHeading = await loginPage.getLoginPageText();
+        expect(panelHeading).toContain('LOGIN Panel');
+    });
+
+    it('testInvalidLoginShowsErrorMessage', async () => {
+        await loginPage.navigateToLoginPage(BASE_URL);
+        await loginPage.setUserName('InvalidUser');
+        await loginPage.setUserPass('WrongPassword');
+        await loginPage.clickLogin();
+
+        const errorMessage = await loginPage.getInvalidMsg();
+        expect(errorMessage).toEqual('Invalid credentials');
+    });
+});
